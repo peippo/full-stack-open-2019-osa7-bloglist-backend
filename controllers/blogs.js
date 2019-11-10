@@ -1,13 +1,18 @@
 const blogsRouter = require("express").Router();
 const BlogPost = require("../models/blogPost");
+const Comment = require("../models/comment");
 const User = require("../models/user");
 const jwt = require("jsonwebtoken");
 
 blogsRouter.get("/", async (request, response) => {
-	const blogs = await BlogPost.find({}).populate("user", {
-		username: 1,
-		name: 1
-	});
+	const blogs = await BlogPost.find({})
+		.populate("user", {
+			username: 1,
+			name: 1
+		})
+		.populate("comments", {
+			content: 1
+		});
 	response.json(blogs.map(blog => blog.toJSON()));
 });
 
@@ -29,7 +34,8 @@ blogsRouter.post("/", async (request, response, next) => {
 			author: body.author,
 			url: body.url,
 			likes: body.likes === undefined ? 0 : body.likes,
-			user: user._id
+			user: user._id,
+			comments: []
 		});
 
 		if (
@@ -49,6 +55,35 @@ blogsRouter.post("/", async (request, response, next) => {
 				username: 1,
 				name: 1
 			});
+			response.status(201).json(populatedBlog);
+		}
+	} catch (exception) {
+		next(exception);
+	}
+});
+
+blogsRouter.post("/:id/comments", async (request, response, next) => {
+	const body = request.body;
+
+	try {
+		const blog = await BlogPost.findById(request.params.id);
+		const comment = new Comment({
+			content: body.content,
+			blog: blog._id
+		});
+
+		if (comment.content === "") {
+			response.status(400).end();
+		} else {
+			const savedComment = await comment.save();
+			blog.comments = blog.comments.concat(savedComment._id);
+			await blog.save();
+			const populatedBlog = await BlogPost.findById(blog.id).populate(
+				"comments",
+				{
+					content: 1
+				}
+			);
 			response.status(201).json(populatedBlog);
 		}
 	} catch (exception) {
