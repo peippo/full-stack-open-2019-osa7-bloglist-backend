@@ -78,12 +78,14 @@ blogsRouter.post("/:id/comments", async (request, response, next) => {
 			const savedComment = await comment.save();
 			blog.comments = blog.comments.concat(savedComment._id);
 			await blog.save();
-			const populatedBlog = await BlogPost.findById(blog.id).populate(
-				"comments",
-				{
+			const populatedBlog = await BlogPost.findById(blog.id)
+				.populate("comments", {
 					content: 1
-				}
-			);
+				})
+				.populate("user", {
+					username: 1,
+					name: 1
+				});
 			response.status(201).json(populatedBlog);
 		}
 	} catch (exception) {
